@@ -40,3 +40,10 @@ print("> Loaded", len(shops), "shops:")
 for shop in shops:
     print(">>",shop)
 
+    
+#Test for writing a comment
+def function():
+    print("The new fun works pew pew")
+
+# +
+#Also a test for new cell.
