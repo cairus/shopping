@@ -19,6 +19,7 @@
 
 # +
 from collections import namedtuple
+import numpy as np
 
 # Define the Shop namedtuple outside the loading function to make it available for later use, if necessary.
 Shop = namedtuple("Shop", "id x y items")
@@ -43,16 +44,26 @@ def load_shops(path_to_shops, path_to_items):
         items.update(shop.items)
     return tuple(shops), items
 
+def load_distances(shops):
+    distances = np.zeros((len(shops), len(shops)))
+    for i in range(len(shops)):
+        for j in range(len(shops)):
+            distances[i][j] = 0 if i==j else euclidean_distance((shops[i].x, shops[i].y), (shops[j].x, shops[j].y))
+    return distances
 
 
-# -
-
-# Load and save the shops to a variable, print them
+# +
+# Load and save the shops and all required items to variables, print them
 shops, all_items = load_shops("tsp_10.txt", "shops_10.txt")
 print("> Loaded", len(shops), "shops:")
 for shop in shops:
     print(">>",shop)
 print("> All items:", all_items)
+
+# Distance matrix
+distances = load_distances(shops)
+#print(distances)
+# -
 
 # ## Visualization code
 
