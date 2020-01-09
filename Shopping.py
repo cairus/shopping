@@ -38,18 +38,21 @@ def load_shops(path_to_shops, path_to_items):
             line = line.strip().split(" ")
             shops[i].append([e for e in line])
     shops = [Shop(e[0],e[1],e[2],e[3]) for e in shops]
-    return tuple(shops)
+    items = set()
+    for shop in shops:
+        items.update(shop.items)
+    return tuple(shops), items
 
 
 
 # -
 
 # Load and save the shops to a variable, print them
-shops = load_shops("tsp_10.txt", "shops_10.txt")
+shops, all_items = load_shops("tsp_10.txt", "shops_10.txt")
 print("> Loaded", len(shops), "shops:")
 for shop in shops:
     print(">>",shop)
-
+print("> All items:", all_items)
 
 # ## Visualization code
 
@@ -58,11 +61,12 @@ from matplotlib import pyplot as plt
 import networkx as nx
 
 # Visualizes a given ordered collection of Shops using matplotlib and networkx
+# Install networkx if have not yet done so: pip install networkx
 def visualize(shops):
     G = nx.DiGraph()
     for i,shop in enumerate(shops):
         G.add_node(shop.id, pos=(shop.x, shop.y))
-        if i<len(shops) - 1:
+        if i < len(shops) - 1:
             G.add_edge(i, i+1)
     pos=nx.get_node_attributes(G,'pos')
     lbl = {e.id:e.id for e in shops}
@@ -73,5 +77,13 @@ def visualize(shops):
 visualize(shops)
 
 # -
+
+# ## Helper code
+
+import math
+def euclidean_distance(a, b):
+    return math.sqrt((a[0] - b[0])**2 + (a[1] - b[1])**2)
+
+# ## Algorithm
 
 
