@@ -135,12 +135,18 @@ import networkx as nx
 # Install networkx if have not yet done so: pip install networkx
 def visualize(shops, start):
     G = nx.DiGraph()
+    
+    # Create nodes:
     G.add_node("Start", pos=start)
     for i,shop in enumerate(shops):
         G.add_node(shop.id, pos=(shop.x, shop.y))
-        if i < len(shops) - 1:
-            G.add_edge(shops[i].id, shops[i+1].id)
-    G.add_edge("Start", shops[0].id)
+        
+    # Create edges:
+    last_node = "Start"
+    for i in range(len(shops)):
+        if len(shops[i].items) != 0:
+            G.add_edge(last_node, shops[i].id)
+            last_node = shops[i].id
     pos=nx.get_node_attributes(G,'pos')
     label = {e.id:e.id for e in shops}
     label["Start"] = "S"
@@ -276,7 +282,6 @@ def shopping(item_list, shop_list, start, dists, dist_cost):
             #if current is not of list type, we are already at some shop
             if current is start: #we are not at any specific shop yet
                 dist = euclidean_distance(current, [shop.x, shop.y]) #distance from current
-                #print("Starting, using distance from start")
                 current = shop
             else: #to move between shops, use precalculated distances
                 dist = distances[current.id][shop.id]
