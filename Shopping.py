@@ -96,7 +96,7 @@ def euclidean_distance(a, b):
     return math.sqrt((a[0] - b[0])**2 + (a[1] - b[1])**2)
 
 
-# ## Algorithm
+# ## Algorithm (initial idea)
 
 # +
 from scipy.spatial import distance
@@ -148,6 +148,108 @@ def shopping(item_list, shop_list, start, dists):
  
 #test it with some set of items, starting at point 0,0
 shopping(["A","E","G","H"], shops, [0,0], distances)
+# -
+
+# ## Algorithm - new approach phase 1
+
+# +
+from scipy.spatial import distance
+import sys
+
+#input:
+    #items - list of items that need to be purchased
+    #shops - list of shops with shop ID, x,y-coordinates and list of items it has
+        #eg Shop(id=0, x=869, y=696, items=['A', 'J'])
+    #start - x and y coordinates for the starting point of the shopping trip
+    #distance matrix - how far shops are from each other
+    #distance cost - how much it costs to walk/drive/etc a distance
+
+#phase 1 output:
+    #possible list of shops to visit with repeating items and prices
+        #if 2 different shops have item A, we still need to choose which shop to buy it from
+
+#phase 2 output
+    #list of shops, where shop.items includes only the items that we bought there
+
+#Shop(id, x, y, items, price)
+    
+def shopping(item_list, shop_list, start, dists, dist_cost): 
+    ###
+    #PHASE 1
+    ###
+    opt_shops = [] #list of shops to visit
+    purchase = item_list[:] #[e for e in item_list] #items that yet need to be purchased
+    remaining_shops = [a for a in shop_list] #shops that we haven't visited yet
+    current = start #the location we are currently at (start [x,y] or a current shop (Shop))
+    
+    while len(purchase) != 0: #some items still need to be purchased
+        
+        best = sys.maxsize #just a very large number to start comparing shops
+        best_shop = ""
+        for shop in remaining_shops: #find optimal next shop
+            #if current is list type, we must find the distance from there to a shop
+            #if current is not of list type, we are already at some shop
+            if type(current) == list: #we are not at any specific shop yet
+                dist = distance.euclidean(current, [shop.x, shop.y]) #distance from current
+            else: #to move between shops, use precalculated distances
+                dist = distances[current.id][shop.id]
+            
+            common = len(set(shop.items).intersection(set(purchase))) #how many needed items it has
+            #TODO: might not be the most elegant solution
+            #finds indexes of elements chosen to "common" and finds the corresponding prices
+            prices = [shop.prices[ix] for ix in [shop.items.index(el) for el in common]]
+            if common == 0: #the shop has no necessary items
+                remaining_shops.remove(shop) #so we don't need the shop
+            else:  
+                #efficiency = dist / common 
+                efficiency = dist_cost * dist * (sum(prices)/common)
+                if efficiency < best: #if we found a more efficient shop, use that as comparison
+                    best = efficiency
+                    best_shop = shop
+                    
+        #update visited shops, needed items and current location
+        opt_shops.append(best_shop) #add the shop we chose to the final list
+        purchase = list(set(purchase).difference(set(best_shop.items))) #remove the bought items from list
+        remaining_shops.remove(best_shop) #no need to revisit the shop
+        current = best_shop
+        
+    ###
+    #PHASE 2
+    ###
+    #we have an initial list of shops, where we can get all items we need
+    #we don't want to buy multiple copies of the same item
+    #and items are sold at different prices in different shops
+    #in phase 2 we find the cheapest option for each item
+    #in the end we get a list of shops, where only those items are listed, that we bought there 
+    #first, find all repeating elements
+    all_items = [] #all items we selected from shops
+    for shop in opt_shops:
+        all_items.extend(shop.items)
+        
+    bought = opt_shops[:] #shows which items we buy from each shop
+        
+    #find repeating items
+    for item in all_items:
+        if all_items.count(item) > 1: #we could but that item from several shops
+            cheapest = sys.maxsize
+            cheapest_shop = "" #where item was cheapest
+            #find which shop sells it cheapest
+            for shop in opt_shops:
+                item_price = shop.prices[shop.items.index(item)]
+                if item_price < cheapest:
+                    cheapest = item_price 
+                    
+        for shop in bought: #we don't buy that item from other shops
+            if shop.id != cheapest_shop.id:
+                shop.items.remove(item) #remove the item
+                shop.prices.remove(shop.prices[shop.items.index(item)]) #remove its price
+
+    
+    #returns list of shops we need to visit to get all items 
+    return opt_shops, bought
+ 
+#test it with some set of items, starting at point 0,0 and distance cost 1
+shopping([["A","D","E","G","H"], [1,2,3,4,5], shops, [0,0], distances, 1)
 # -
 
 
