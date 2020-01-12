@@ -239,7 +239,7 @@ def shopping_initial(item_list, shop_list, start, dists):
 shopping_initial(["A","E","G","H"], shops, [0,0], distances)
 # -
 
-# ## Algorithm - new approach phase 1
+# ## Algorithm - new approach
 
 # +
 #from scipy.spatial import distance
@@ -344,8 +344,46 @@ def shopping(item_list, shop_list, start, dists, dist_cost):
                 shop.items.remove(item) #remove the item
 
     
+    ###
+    #PHASE 3
+    ###
+    #remove the shops we didn't but anything from and perform TSP on them
+    #currently TSP is done by simple nearest neighbour
+    #distances come from the previously calculated matrix
+    final_shops = []
+    for shop in bought:
+        if len(shop.items) != 0: #if we bought at least one item from that shop, we include it
+            final_shops.append(shop)
+            
+    #all shops are list final_shops. we start adding them to ordered_shops, based on their nearest unvisited shop
+    ordered_shops = []
+    #find the closest shop to the starting point
+    closest = sys.maxsize #big number to start comparing
+    first_shop = ""
+    for shop in final_shops:
+        dist = euclidean_distance(start, [shop.x, shop.y])
+        if dist < closest:
+            closest = dist
+            first_shop = shop
+    ordered_shops.append(first_shop)
+    i = 0 #the shop we are looking at
+    while len(ordered_shops) < len(final_shops): #we mustn't leave out any shops so lists have same length
+        #find the next closest unvisited shop. if the closest one is visited, choose the second closest etc
+        curr_shop = ordered_shops[i]
+        #found = False #we haven't yet found the next closest shop
+        next_shop = None #where we want to go to next
+        best_dist = sys.maxsize
+        for shop in final_shops:
+            if shop not in ordered_shops: #we haven't been to that shop yet
+                distance = dists[curr_shop.id][shop.id] #dist from current to that shop
+                if distance < best_dist:
+                    best_dist = distance
+                    next_shop = shop
+                    
+        ordered_shops.append(next_shop)      
+    
     #returns list of shops we need to visit to get all items 
-    return opt_shops, bought
+    return opt_shops, bought, ordered_shops
 
 #test it with some set of items, starting at point 0,0 and distance cost 0.005
 shopping(get_all_items(shops_random), shops_random, [0,0], distances, 0.005)
@@ -356,7 +394,7 @@ shops_random = create_shops(positions)
 print("-----------")
 print("Trying to buy:", get_all_items(shops_random))
 start = [0, 0]
-start_shops, shops = shopping(get_all_items(shops_random), shops_random, start, distances, 0.005)
+start_shops, shops, ordered = shopping(get_all_items(shops_random), shops_random, start, distances, 0.005)
 
 # Print results of Phase 1
 print("Results of Phase 1:")
@@ -368,9 +406,14 @@ print("-----------")
 print("Results of Phase 2:")
 for shop in shops:
     print(shop)
+    
+# Print results of Phase 3
+print("-----------")
+print("Results of Phase 3:")
+for shop in ordered:
+    print(shop)
 
 # Visualize
 visualize(shops, start)
 # -
-
 
