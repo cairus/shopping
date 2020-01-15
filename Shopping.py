@@ -15,14 +15,79 @@
 
 # # Shopping Optimizer, project in Advanced Algorithmics (MTAT.03.238), 2019/2020 Autumn
 
-# ## Code for loading data:
+# ## Main variables
+# - *shops* - collection of shops (Shop(id, x, y, items, prices))
+# - *all_items* - collection of all items required from the shops
+# - *distances* - distance matrix of *shops*
+
+# ## General functions
+
+# +
+import math
+
+
+def euclidean_distance(a, b):
+    return math.sqrt((a[0] - b[0])**2 + (a[1] - b[1])**2)
+
+
+# Calculated and returns the distance matrix of given shops (as a 2d numpy array)
+def distance_matrix(shops):
+    distances = np.zeros((len(shops), len(shops)))
+    for i in range(len(shops)):
+        for j in range(len(shops)):
+            distances[i][j] = 0 if i==j else euclidean_distance((shops[i].x, shops[i].y), (shops[j].x, shops[j].y))
+    return distances
+
+
+# Returns all the unique items from the given collection of shops
+def get_all_items(shops):
+    items = set()
+    for shop in shops:
+        items.update(shop.items)
+    return list(items)
+
+
+# Returns the total distance travelled between the shops in given order. Also uses start and end points, if either is given. 
+def total_distance(shops, distance_matrix, start=[0,0], end=None):
+    dist = sum(distance_matrix[shops[i].id][shops[i+1].id] for i in range(len(shops)-1))
+    if start is not None:
+        start_dist = euclidean_distance(start, (shops[0].x, shops[0].y))
+        dist += start_dist
+    if end is not None:
+        last_index = len(shops) - 1
+        end_dist = euclidean_distance(end, (shops[last_index].x, shops[last_index].y))
+        dist += end_dist
+    return dist
+
+
+# Returns the total cost of items in the given shop. If there are duplicate items, then pick_first must be True, 
+# otherwise duplicate items' prices are also added.
+def total_item_cost(shops, pick_first=False):
+    if not pick_first:
+        return sum(sum(shop.prices) for shop in shops)
+    else:
+        items = get_all_items(shops)
+        total_sum = 0
+        for item in items:
+            for shop in shops:
+                if item in shop.items:
+                    total_sum += shop.prices[shop.items.index(item)]
+                    break
+        return total_sum
+
+
+# -
+
+# ## Code for loading, saving data
 
 # +
 from collections import namedtuple
 import numpy as np
 
-# Define the Shop namedtuple outside the loading function to make it available for later use, if necessary.
+
+# Define the Shop namedtuple that is used to represent shops in the code.
 Shop = namedtuple("Shop", "id x y items prices")
+
 
 # Loads shops with items from text files.
 # Input: a) path to shops file (assumes each row is a shop with X and Y coordinates, separated by whitespace),
@@ -46,65 +111,7 @@ def load_shops(path_to_shops, path_to_items):
             shops[i].append(prices)
                 
     shops = [Shop(e[0],e[1],e[2],e[3], e[4]) for e in shops]
-    
     return shops
-
-def distance_matrix(shops):
-    distances = np.zeros((len(shops), len(shops)))
-    for i in range(len(shops)):
-        for j in range(len(shops)):
-            distances[i][j] = 0 if i==j else euclidean_distance((shops[i].x, shops[i].y), (shops[j].x, shops[j].y))
-    return distances
-
-
-# +
-# Load and save the shops and all required items to variables
-shops = load_shops("tsp_10.txt", "shops_10_priced.txt")
-all_items = get_all_items(shops)
-
-# Print for debugging
-print("> Loaded", len(shops), "shops:")
-for shop in shops:
-    print(">>",shop)
-print("> All items:", all_items)
-
-# Create distance matrix
-distances = distance_matrix(shops)
-#print(distances)
-
-# +
-# Generating test data
-import random
-import sys
-import numpy as np
-
-# Create shops with items. Requires list of tuples of positions (x,y).
-def create_shops(positions, shop_count=10, item_types=10, max_item_count=30, min_items=1, max_items=6, 
-                 min_price=1, max_price=4):
-    possible_item_types = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[:item_types]
-    print("Generating shops. Using", len(possible_item_types), "item types.")
-    items = []
-    item_prices = []
-    
-    # First, create some items to shops, randomly between given min and max parameters.
-    for i in range(shop_count):
-        shop_item_count = random.randint(min_items, max_items)
-        shop_items = list(np.random.choice(list(possible_item_types), shop_item_count, replace=False))
-        items.append(shop_items)
-    
-    # Make sure not more than item_count items exist in the shops
-    item_count = sum(len(e) for e in items)
-    while item_count > max_item_count:
-        # Pick one shop randomly and delete an item from its list
-        i = random.randint(0, len(items) - 1)
-        if len(items[i]) > 1:
-            items[i].pop()
-        item_count = sum(len(e) for e in items)
-    
-    # Give prices to items. Currently selects them randomly.
-    for i in range(len(items)):
-        item_prices.append([random.randint(min_price, max_price) for e in range(len(items[i]))])
-    return list(Shop(i, positions[i][0], positions[i][1], items[i], item_prices[i]) for i in range(len(positions)))
 
 # Saves the given shops to a text file. 
 def save_shops(shops, fileName=""):
@@ -116,13 +123,61 @@ def save_shops(shops, fileName=""):
                 file.write(str(shop.items[i]) + " " + str(shop.prices[i]) + " ")
             file.write("\n")
 
-# Example usage:
-positions = [(e[1], e[2]) for e in shops]
-shops_random = create_shops(positions)
-print("Created shops are:")
-for shop in shops_random:
-    print(">", shop)
-save_shops(shops_random)
+
+# +
+# Load shops from files
+shops = load_shops("tsp_10.txt", "shops_10_priced.txt")
+
+# Find the set of all required items
+all_items = get_all_items(shops)
+
+# Create distance matrix
+distances = distance_matrix(shops)
+
+# Print for debugging
+print("> Loaded", len(shops), "shops:")
+for shop in shops:
+    print(">>",shop)
+print("> All items:", all_items)
+
+# -
+
+# ## Generating random test data
+
+# +
+import random
+import sys
+import numpy as np
+
+# Creates given amount of shops. Assigns them random positions if None are provided, else uses those.
+def create_shops(shop_count=10, positions=None):
+    if positions is None:
+        print("Note: Creating random positions as none were provided.")
+        positions = [(random.randint(0, 1000), random.randint(0, 1000)) for i in range(shop_count)]
+    shops = [Shop(i, positions[i][0], positions[i][1], [], []) for i in range(shop_count)]
+    return shops
+    
+# Creates collections of items under given parameters and assigns them to shops
+def create_and_assign_items(shops, total_item_types=10, min_items_per_shop=1, max_items_per_shop=10, min_price=1, max_price=5):
+    base_letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    if total_item_types > len(base_letters):
+        raise Exception("Can only support {} item types, but was asked {}.".format(len(base_letters), total_item_types))
+    item_types = base_letters[:total_item_types]
+    
+    for i, shop in enumerate(shops):
+        amount = random.randint(min_items_per_shop, max_items_per_shop)
+        items = list(np.random.choice(list(item_types), amount, replace=False))
+        shop.items.extend(items)
+        shop.prices.extend([random.randint(min_price, max_price) for e in range(len(items))])
+    
+### Example usage:
+# shops = create_shops(shop_count=5)
+# create_and_assign_items(shops, total_item_types=10, min_items_per_shop=1, max_items_per_shop=5, min_price=1, max_price=6)
+# items = get_all_items(shops)
+# distances = distance_matrix(shops)
+
+
+
 # -
 
 # ## Visualization code
@@ -132,8 +187,7 @@ from matplotlib import pyplot as plt
 import networkx as nx
 
 # Visualizes a given ordered collection of Shops using matplotlib and networkx
-# Install networkx if have not yet done so: pip install networkx
-def visualize(shops, start):
+def visualize(shops, start=[0, 0], header="", x="X position", y="Y position"):
     G = nx.DiGraph()
     
     # Create nodes:
@@ -147,99 +201,44 @@ def visualize(shops, start):
         if len(shops[i].items) != 0:
             G.add_edge(last_node, shops[i].id)
             last_node = shops[i].id
-    pos=nx.get_node_attributes(G,'pos')
+    pos = nx.get_node_attributes(G,'pos')
+    # Create edge labels (inside node)
     label = {e.id:e.id for e in shops}
-    label["Start"] = "S"
+    label["Start"] = "X"
     nx.draw(G, pos, labels=label)
-    
+
+    # Create legend of items in the style: "Shop 0: A 1, B 2"
     legend = []
     for e in shops:
         if len(e.items) == 0:
             continue
         lgn = "Shop " + str(e.id) + ": " + "".join([str(e.items[i]) + " " + str(e.prices[i]) + ", " for i in range(len(e.items))])
         legend.append(lgn)
-
     plt.legend(legend, bbox_to_anchor=(1, 1))
+    
+    # Set header, axis labels if provided
+    if x is not "":
+        plt.xlabel(x)
+        plt.axis("on")
+    if y is not "":
+        plt.ylabel(y)
+        plt.axis("on")
+    if header is not "":
+        plt.title(header)
     plt.show()
 
-# Example usage:
-visualize(shops_random, [0,0])
+### Example usage:
+# visualize(shops)
 
-# -
-
-# ## Helper code
-
-# +
-import math
-def euclidean_distance(a, b):
-    return math.sqrt((a[0] - b[0])**2 + (a[1] - b[1])**2)
-
-# Returns all the unique items from the given list of shops.
-def get_all_items(shops):
-    items = set()
-    for shop in shops:
-        items.update(shop.items)
-    return list(items)
 
 
 # -
 
-# ## Algorithm (initial idea) 
-# - [Taavi]: buggy but since not used, not going to update
-
-# +
-#from scipy.spatial import distance
-import sys
-#input:
-    #items - list of items that need to be purchased
-    #shops - list of shops with shop ID, x,y-coordinates and list of items it has
-        #eg Shop(id=0, x=869, y=696, items=['A', 'J'])
-    #start - x and y coordinates for the starting point of the shopping trip
-    #distance matrix - how far shops are from each other
-
-#output:
-    #optimal list of shops to visit
-    
-def shopping_initial(item_list, shop_list, start, dists): 
-    opt_shops = [] #list of shops to visit
-    purchase = item_list[:] #[e for e in item_list] #items that yet need to be purchased
-    remaining_shops = [a for a in shop_list] #shops that we haven't visited yet
-    current = start #the location we are currently at (start [x,y] or a current shop (Shop))
-    
-    while len(purchase) != 0: #some items still need to be purchased
-        
-        best = sys.maxsize #just a very large number to start comparing shops
-        best_shop = ""
-        for shop in remaining_shops: #find optimal next shop
-            #if current is list type, we must find the distance from there to a shop
-            #if current is not of list type, we are already at some shop
-            if type(current) == list: #we are not at any specific shop yet
-                dist = euclidean_distance(current, [shop.x, shop.y]) #distance from current
-            else: #to move between shops, use precalculated distances
-                dist = distances[current.id][shop.id]
-            common = len(set(shop.items).intersection(set(purchase))) #how many needed items it has
-            if common == 0: #the shop has no necessary items
-                remaining_shops.remove(shop) #so we don't need the shop
-            else:  
-                efficiency = dist / common
-                if efficiency < best: #if we found a more efficient shop, use that as comparison
-                    best = efficiency
-                    best_shop = shop
-                    
-        #update visited shops, needed items and current location
-        opt_shops.append(best_shop) #add the shop we chose to the final list
-        purchase = list(set(purchase).difference(set(best_shop.items))) #remove the bought items from list
-        remaining_shops.remove(best_shop) #no need to revisit the shop
-        #current = (best_shop.x, best_shop.y) #move to the chosen shop
-        current = best_shop
-        
-    return opt_shops
- 
-#test it with some set of items, starting at point 0,0
-shopping_initial(["A","E","G","H"], shops, [0,0], distances)
-# -
-
-# ## Algorithm - new approach
+# ## Algorithm 
+# **Three phased algorithm:**
+# 1. Set cover - pick shops greedily until a shop for all items have been found
+# 2. Price optimization - buy each item only from the cheapest shop, discarding shops where no items are bought
+# 3. TSP - reorder the shop visit order
 
 # +
 #from scipy.spatial import distance
@@ -306,6 +305,7 @@ def shopping(item_list, shop_list, start, dists, dist_cost):
         blacklist.append(best_shop)
         current = best_shop
         
+    
     ###
     #PHASE 2
     ###
@@ -382,38 +382,92 @@ def shopping(item_list, shop_list, start, dists, dist_cost):
                     
         ordered_shops.append(next_shop)      
     
+            
+    # Phase 1 modification: Remove bought items from subsequent shops
+    items_already_bought = set()
+    for shop in opt_shops:
+        # Find indices of items in this shop that are already bought (those are to be removed)
+        indices = [shop.items.index(e) for e in items_already_bought if e in shop.items]
+        # Update our list of bought items
+        items_already_bought.update(shop.items)
+        # Create new list of items, clear the old one and add items there
+        new_items = [shop.items[i] for i in range(len(shop.items)) if i not in indices]
+        shop.items.clear()
+        shop.items.extend(new_items)
+        # Do same for list of prices
+        new_prices = [shop.prices[i]  for i in range(len(shop.prices)) if i not in indices]
+        shop.prices.clear()
+        shop.prices.extend(new_prices)
+    
     #returns list of shops we need to visit to get all items 
     return opt_shops, bought, ordered_shops
 
 #test it with some set of items, starting at point 0,0 and distance cost 0.005
 shopping(get_all_items(shops_random), shops_random, [0,0], distances, 0.005)
+# -
+# ## Testing and visualizing
+
 # +
-# Testing with random data. The shopping(..) function returns two lists: shops after Phase 1 and after Phase 2
-# If there is a shop with no items in Phase 2, then that shop is actually redundant and Phase 2 is useful.
-shops_random = create_shops(positions)
-print("-----------")
-print("Trying to buy:", get_all_items(shops_random))
+# Testing and visualizing the algorithm with random data.
+
+shops = create_shops(shop_count=5)
+create_and_assign_items(shops, total_item_types=10, min_items_per_shop=1, max_items_per_shop=5, min_price=1, max_price=6)
+
+print("Initial list of shops:")
+for shop in shops:
+    print(shop)
+items = get_all_items(shops)
+print("Items to be bought:", items)
+
+distances = distance_matrix(shops)
+distance_cost = 0.005
 start = [0, 0]
-start_shops, shops, ordered = shopping(get_all_items(shops_random), shops_random, start, distances, 0.005)
+
+phase_1, phase_2, phase_3 = shopping(items, shops, start, distances, distance_cost)
+# Find total distance
+td_1 = total_distance(phase_1, distances)
+td_2 = total_distance(phase_2, distances)
+td_3 = total_distance(phase_3, distances)
+# Find total item cost
+tic_1 = total_item_cost(phase_1, True)
+tic_2 = total_item_cost(phase_2)
+tic_3 = total_item_cost(phase_3)
+# Calculate total cost
+tc_1 = tic_1 + td_1 * distance_cost
+tc_2 = tic_2 + td_2 * distance_cost
+tc_3 = tic_3 + td_3 * distance_cost
 
 # Print results of Phase 1
+print("-----------")
 print("Results of Phase 1:")
-for shop in start_shops:
+for shop in phase_1:
     print(shop)
-    
+print("Total distance", td_1 , "| item cost:", tic_1, "| total cost:", tc_1)
+
 # Print results of Phase 2
 print("-----------")
 print("Results of Phase 2:")
-for shop in shops:
+for shop in phase_2:
     print(shop)
+print("Total distance:", td_2, "| item cost:", tic_2, "| total cost:", tc_2)
     
 # Print results of Phase 3
 print("-----------")
 print("Results of Phase 3:")
-for shop in ordered:
+for shop in phase_3:
     print(shop)
+print("Total distance:", td_3, "| item cost:", tic_3, "| total cost:", tc_3)
 
-# Visualize
-visualize(shops, start)
+# Create headers for visualization and visualize shop visit order for each phase.
+header_1 = "Phase 1 result. Distance %.2f, item cost %d, total cost %.2f." % (td_1, tic_1, tc_1)
+header_2 = "Phase 2 result. Distance %.2f, item cost %d, total cost %.2f." % (td_2, tic_2, tc_2)
+header_3 = "Phase 3 result. Distance %.2f, item cost %d, total cost %.2f." % (td_3, tic_3, tc_3)
+visualize(phase_1, start=start, header=header_1)
+visualize(phase_2, start=start, header=header_2)
+visualize(phase_3, start=start, header=header_3)
 # -
+# ## Running tests
+# Run the algorithm N times, see the avg gains for each phase, find an example of data where the algorithm works well, where it doesn't.
 
+# +
+# TODO
