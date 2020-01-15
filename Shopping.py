@@ -24,7 +24,11 @@
 
 # +
 import math
+from collections import namedtuple
 
+
+# Define the Shop namedtuple that is used to represent shops in the code.
+Shop = namedtuple("Shop", "id x y items prices")
 
 def euclidean_distance(a, b):
     return math.sqrt((a[0] - b[0])**2 + (a[1] - b[1])**2)
@@ -76,17 +80,13 @@ def total_item_cost(shops, pick_first=False):
         return total_sum
 
 
+
 # -
 
 # ## Code for loading, saving data
 
 # +
-from collections import namedtuple
 import numpy as np
-
-
-# Define the Shop namedtuple that is used to represent shops in the code.
-Shop = namedtuple("Shop", "id x y items prices")
 
 
 # Loads shops with items from text files.
@@ -152,7 +152,7 @@ import numpy as np
 # Creates given amount of shops. Assigns them random positions if None are provided, else uses those.
 def create_shops(shop_count=10, positions=None):
     if positions is None:
-        print("Note: Creating random positions as none were provided.")
+        #print("Note: Creating random positions as none were provided.")
         positions = [(random.randint(0, 1000), random.randint(0, 1000)) for i in range(shop_count)]
     shops = [Shop(i, positions[i][0], positions[i][1], [], []) for i in range(shop_count)]
     return shops
@@ -189,7 +189,7 @@ import networkx as nx
 # Visualizes a given ordered collection of Shops using matplotlib and networkx
 def visualize(shops, start=[0, 0], header="", x="X position", y="Y position"):
     G = nx.DiGraph()
-    
+    #print("Visualizing order:", [s.id for s in shops])
     # Create nodes:
     G.add_node("Start", pos=start)
     for i,shop in enumerate(shops):
@@ -347,7 +347,7 @@ def shopping(item_list, shop_list, start, dists, dist_cost):
     ###
     #PHASE 3
     ###
-    #remove the shops we didn't but anything from and perform TSP on them
+    #remove the shops we didn't buy anything from and perform TSP on them
     #currently TSP is done by simple nearest neighbour
     #distances come from the previously calculated matrix
     final_shops = []
@@ -379,10 +379,9 @@ def shopping(item_list, shop_list, start, dists, dist_cost):
                 if distance < best_dist:
                     best_dist = distance
                     next_shop = shop
-                    
         ordered_shops.append(next_shop)      
+        i += 1
     
-            
     # Phase 1 modification: Remove bought items from subsequent shops
     items_already_bought = set()
     for shop in opt_shops:
@@ -403,14 +402,14 @@ def shopping(item_list, shop_list, start, dists, dist_cost):
     return opt_shops, bought, ordered_shops
 
 #test it with some set of items, starting at point 0,0 and distance cost 0.005
-shopping(get_all_items(shops_random), shops_random, [0,0], distances, 0.005)
+#shopping(get_all_items(shops_random), shops_random, [0,0], distances, 0.005)
 # -
 # ## Testing and visualizing
 
 # +
 # Testing and visualizing the algorithm with random data.
 
-shops = create_shops(shop_count=5)
+shops = create_shops(shop_count=10)
 create_and_assign_items(shops, total_item_types=10, min_items_per_shop=1, max_items_per_shop=5, min_price=1, max_price=6)
 
 print("Initial list of shops:")
@@ -470,4 +469,88 @@ visualize(phase_3, start=start, header=header_3)
 # Run the algorithm N times, see the avg gains for each phase, find an example of data where the algorithm works well, where it doesn't.
 
 # +
-# TODO
+test_count = 2500
+
+best_shops = None
+best_metrics = (0, 0, 0)
+worst_shops = None
+worst_metrics = (0, 0, 0)
+all_metrics_delta = []
+
+for i in range(test_count):
+    shops = create_shops(shop_count=10)
+    create_and_assign_items(shops, total_item_types=12, min_items_per_shop=2, max_items_per_shop=6, 
+                            min_price=1, max_price=6)
+    items = get_all_items(shops)
+    distances = distance_matrix(shops)
+    start = [0, 0]
+    
+    p1, p2, p3 = shopping(items, shops, start, distances, distance_cost)
+    phases = (p1, p2, p3)
+    td = [total_distance(phase, distances) for phase in phases]
+    tic_1 = total_item_cost(phase_1, True)
+    tic_2 = total_item_cost(phase_2)
+    tic_3 = total_item_cost(phase_3)
+    tic = [tic_1, tic_2, tic_3]
+    tc = [tic[i] + td[i] * distance_cost for i in range(3)]
+    
+    metrics_delta = (td[2] - td[0], tic[2] - tic[0], tc[2] - tc[0])
+    all_metrics_delta.append(metrics_delta)
+    
+    #print("metrics:", td, tic, tc)
+    #print("tc2-tc0:", tc[2]-tc[0])
+    #best_metrics[2] is total TOTAL COST
+    #print("Current result:", tc[2] - tc[0])
+    #print("current best", best_metrics[2])
+    if best_shops is None or best_metrics[2] > tc[2] - tc[0]:
+        #print("Comparison:", best_metrics[2], tc[2] - tc[0])
+        best_shops = copy.deepcopy(shops)
+        best_metrics = metrics_delta
+        #print("updated best to", best_metrics)
+    if worst_shops is None or worst_metrics[2] < tc[2] - tc[0]:
+        worst_shops = copy.deepcopy(shops)
+        worst_metrics = metrics_delta
+        #print("updated worst to", worst_metrics)
+
+print("Tests finished.")
+print("Worst:", worst_metrics)
+print("Best:", best_metrics)
+
+print("best shops list:")
+for shop in best_shops:
+    print(shop)
+
+distances = distance_matrix(best_shops)
+items = get_all_items(best_shops)
+for i,phase in enumerate(shopping(items, best_shops, start, distances, distance_cost)):
+    td = total_distance(phase, distances)
+    tic = total_item_cost(phase, True) if i==0 else total_item_cost(phase)
+    tc = tic + td * distance_cost
+    header = "Distance %.2f, item cost %d, total cost %.2f." % (td, tic, tc)
+    visualize(phase, start=start, header=header)
+
+
+print("Worst shops list:")
+for shop in worst_shops:
+    print(shop)
+
+distances = distance_matrix(worst_shops)
+items = get_all_items(worst_shops)
+for i,phase in enumerate(shopping(items, worst_shops, start, distances, distance_cost)):
+    td = total_distance(phase, distances)
+    tic = total_item_cost(phase, True) if i==0 else total_item_cost(phase)
+    tc = tic + td * distance_cost
+    header = "Distance %.2f, item cost %d, total cost %.2f." % (td, tic, tc)
+    visualize(phase, start=start, header=header)
+
+    
+all_delta_distances = [e[0] for e in all_metrics_delta]
+all_delta_item_prices = [e[1] for e in all_metrics_delta]
+all_delta_cost = [e[2] for e in all_metrics_delta]
+print("Avg distance between p1 and p3:", sum(all_delta_distances)/len(all_delta_distances))
+print("Avg better item total cost change:", sum(all_delta_item_prices)/len(all_delta_item_prices))
+print("Avg total cost change:", sum(all_delta_cost)/len(all_delta_cost))
+# -
+
+
+
